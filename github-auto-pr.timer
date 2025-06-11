@@ -1,0 +1,11 @@
+[Unit]
+Description=Run GitHub Auto PR Bot weekly
+Requires=github-auto-pr.service
+
+[Timer]
+OnCalendar=weekly
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

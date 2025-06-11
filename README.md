@@ -9,6 +9,11 @@
 - `run-activity-bot.sh`: activity botを実行するためのシェルスクリプト
 - `run-auto-pr.sh`: auto PRを実行するためのシェルスクリプト
 - `ecosystem.config.js`: PM2による自動実行設定
+- `github-activity-bot.service`: systemd用activity botサービスファイル
+- `github-auto-pr.service`: systemd用auto PRサービスファイル
+- `github-activity-bot.timer`: systemd用activity botタイマーファイル
+- `github-auto-pr.timer`: systemd用auto PRタイマーファイル
+- `setup-systemd.sh`: systemd自動起動設定スクリプト
 
 ## 機能詳細
 
@@ -27,9 +32,9 @@
 - 過去の活動を記録するコミットを作成
 - activity.txtファイルを最新の日付で更新
 
-## PM2による自動実行設定
-- `github-activity-bot`: 毎日9時に実行
-- `github-auto-pr`: 毎週月曜日10時に実行
+## systemdによる自動実行設定
+- `github-activity-bot.timer`: 毎日実行（ランダム遅延あり）
+- `github-auto-pr.timer`: 毎週実行（ランダム遅延あり）
 
 ## セットアップ手順
 
@@ -48,11 +53,20 @@ chmod +x run-activity-bot.sh
 chmod +x run-auto-pr.sh
 ```
 
-### 3. PM2での起動
+### 3. systemdでの自動起動設定
 ```bash
-pm2 start ecosystem.config.js
-pm2 save
+# セットアップスクリプトに実行権限を付与
+chmod +x setup-systemd.sh
+
+# 自動セットアップを実行
+./setup-systemd.sh
 ```
+
+このスクリプトは以下の処理を自動で行います：
+- GitHubの認証情報を入力プロンプトで取得
+- サービスファイルを適切な場所にコピー・設定
+- systemdサービスとタイマーの有効化
+- タイマーの開始
 
 ## 環境変数の設定方法
 両方のスクリプトはGitHubトークンを必要とします。`.env`ファイルに以下の形式で設定してください：
@@ -72,20 +86,34 @@ GITHUB_TOKEN=your_github_token_here
 ./run-auto-pr.sh
 ```
 
-### PM2での管理
+### systemdでの管理
 ```bash
-# 状態確認
-pm2 status
+# タイマー状態確認
+sudo systemctl status github-activity-bot.timer
+sudo systemctl status github-auto-pr.timer
+
+# 次回実行予定確認
+sudo systemctl list-timers github-*
 
 # ログ確認
-pm2 logs github-activity-bot
-pm2 logs github-auto-pr
+sudo journalctl -u github-activity-bot.service
+sudo journalctl -u github-auto-pr.service
 
-# 停止
-pm2 stop all
+# タイマー停止
+sudo systemctl stop github-activity-bot.timer
+sudo systemctl stop github-auto-pr.timer
 
-# 再起動
-pm2 restart all
+# タイマー開始
+sudo systemctl start github-activity-bot.timer
+sudo systemctl start github-auto-pr.timer
+
+# 手動実行
+sudo systemctl start github-activity-bot.service
+sudo systemctl start github-auto-pr.service
+
+# サービス無効化（自動起動停止）
+sudo systemctl disable github-activity-bot.timer
+sudo systemctl disable github-auto-pr.timer
 ```
 
 ## 注意事項
