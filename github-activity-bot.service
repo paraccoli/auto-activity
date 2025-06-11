@@ -1,0 +1,17 @@
+[Unit]
+Description=GitHub Activity Bot Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=your_username
+WorkingDirectory=/home/your_username/apps/auto-activity
+Environment=GITHUB_TOKEN=your_github_token_here
+Environment=GITHUB_USERNAME=your_github_username
+Environment=GITHUB_REPO=your_repo_name
+ExecStart=/home/your_username/apps/auto-activity/venv/bin/python /home/your_username/apps/auto-activity/github-activity-bot.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
