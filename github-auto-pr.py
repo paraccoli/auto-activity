@@ -33,18 +33,63 @@ def create_pull_request(repo, title, body, head, base):
 def merge_pull_request(repo, pr_number, commit_title="Auto merge", commit_message="プルリクエストを自動マージしました", merge_method="merge"):
     try:
         pull_request = repo.get_pull(pr_number)
-        # プルリクエストがマージ可能かチェック
-        if pull_request.mergeable:
+        
+        # PRの状態を待つ（最大30秒）
+        max_attempts = 6
+        for attempt in range(max_attempts):
+            # PRの情報を再取得
+            pull_request = repo.get_pull(pr_number)
+            print(f"Attempt {attempt + 1}: PR state={pull_request.state}, mergeable={pull_request.mergeable}, mergeable_state={pull_request.mergeable_state}")
+            
+            # PRがクローズされている場合はスキップ
+            if pull_request.state == 'closed':
+                print(f"Pull request #{pr_number} is already closed")
+                return False
+            
+            # mergeable状態をチェック
+            if pull_request.mergeable is True:
+                break
+            elif pull_request.mergeable is False:
+                print(f"Pull request #{pr_number} has merge conflicts")
+                return False
+            else:
+                # mergeable状態がまだ決まっていない場合は少し待つ
+                if attempt < max_attempts - 1:
+                    print(f"Mergeable state not ready, waiting 5 seconds...")
+                    time.sleep(5)
+                else:
+                    print(f"Mergeable state could not be determined after {max_attempts} attempts")
+                    return False
+          # マージを実行
+        try:
+            # まずデフォルトのmergeを試す
             merge_result = pull_request.merge(commit_title=commit_title, commit_message=commit_message, merge_method=merge_method)
             if merge_result.merged:
-                print(f"Pull request #{pr_number} merged successfully")
+                print(f"Pull request #{pr_number} merged successfully with method '{merge_method}'")
                 return True
             else:
-                print(f"Failed to merge pull request #{pr_number}")
-                return False
-        else:
-            print(f"Pull request #{pr_number} is not mergeable")
+                print(f"Failed to merge with method '{merge_method}', trying 'squash'...")
+                # squash mergeを試す
+                merge_result = pull_request.merge(commit_title=commit_title, commit_message=commit_message, merge_method="squash")
+                if merge_result.merged:
+                    print(f"Pull request #{pr_number} merged successfully with method 'squash'")
+                    return True
+                else:
+                    print(f"Failed to merge pull request #{pr_number} with both methods: {merge_result}")
+                    return False
+        except Exception as merge_error:
+            print(f"Error during merge operation: {merge_error}")
+            # Squash mergeを最後の手段として試す
+            try:
+                print("Trying squash merge as fallback...")
+                merge_result = pull_request.merge(commit_title=commit_title, commit_message=commit_message, merge_method="squash")
+                if merge_result.merged:
+                    print(f"Pull request #{pr_number} merged successfully with fallback squash method")
+                    return True
+            except Exception as fallback_error:
+                print(f"Fallback squash merge also failed: {fallback_error}")
             return False
+            
     except Exception as e:
         print(f"Error merging pull request #{pr_number}: {e}")
         return False
@@ -92,38 +137,59 @@ def main():
 ## 詳細
 リポジトリの定期的なメンテナンスを行います。"""
         
-        issue = create_issue(repo, issue_title, issue_body)
-
-        # 新しいブランチを作成
+        issue = create_issue(repo, issue_title, issue_body)        # 新しいブランチを作成
         repo.create_git_ref(ref=f"refs/heads/{target_branch}", sha=sb.commit.sha)
         print(f"Created new branch: {target_branch}")
 
-        # 新しいブランチにファイルを追加
-        file_content = f"This is a new file created for the pull request at {timestamp}."
-        repo.create_file(f"new_file{timestamp}.txt", f"Add new file at {timestamp}", file_content, branch=target_branch)
-        print("Added new file to the branch")
+        # activity.txtファイルを更新（新しいファイルを作成しない）
+        file_path = "activity.txt"
+        file_content = f"""# Activity Log
 
-        # プルリクエストを作成（イシューと関連付け）
-        pr_title = f"New Feature Addition - {timestamp}"
-        pr_body = f"""This pull request adds a new feature to the project. Created at {timestamp}.
+Last maintenance: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Task ID: TASK-{timestamp}
 
-Related issue: #{issue.number if issue else 'N/A'}
+## Recent Activities
+- Repository maintenance performed at {timestamp}
+- Automated pull request workflow executed
+- System health check completed
+
+## Status
+All systems operational.
+"""
+        
+        try:
+            # 既存のファイルを取得して更新
+            contents = repo.get_contents(file_path, ref=target_branch)
+            repo.update_file(contents.path, f"Update activity log at {timestamp}", file_content, contents.sha, branch=target_branch)
+            print("Updated existing activity.txt file")
+        except:
+            # ファイルが存在しない場合は新規作成
+            repo.create_file(file_path, f"Create activity log at {timestamp}", file_content, branch=target_branch)
+            print("Created new activity.txt file")        # プルリクエストを作成（イシューと関連付け）
+        pr_title = f"Repository Maintenance - {timestamp}"
+        pr_body = f"""# Repository Maintenance
+
+This pull request updates the activity log with the latest maintenance information.
+
+**Created at**: {timestamp}  
+**Related issue**: #{issue.number if issue else 'N/A'}
 
 ## 変更内容
-- 新しいファイル `new_file{timestamp}.txt` を追加
-- 自動生成されたコンテンツを含む
+- `activity.txt` ファイルを最新の情報で更新
+- リポジトリメンテナンス記録を追加
+- システム状態を記録
 
 ## テスト
-- 自動テストは不要（自動生成ファイル）
+- 自動テストは不要（ログファイル更新のみ）
 
 Closes #{issue.number if issue else 'N/A'}"""
         
         pull_request = create_pull_request(repo, pr_title, pr_body, target_branch, "main")
 
         if pull_request:
-            # 少し待ってからマージ（GitHub APIの同期のため）
-            print("Waiting 5 seconds before merging...")
-            time.sleep(5)
+            # GitHub APIでPRの状態が安定するまで待機
+            print("Waiting 10 seconds for PR to be ready for merging...")
+            time.sleep(10)
             
             # プルリクエストを自動マージ
             merge_success = merge_pull_request(

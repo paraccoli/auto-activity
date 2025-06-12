@@ -10,8 +10,8 @@ if [ -d "venv" ]; then
     source venv/bin/activate
 fi
 
-# Pythonスクリプトを実行
-python3 github-auto-pr.py
+# クリーンアップスクリプトを実行
+python3 cleanup-repo.py
 
 # 仮想環境を非アクティベート（アクティベートしていた場合）
 if [ -d "venv" ]; then
