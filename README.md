@@ -4,10 +4,12 @@
 このリポジトリには、GitHubリポジトリに対して自動的にプルリクエストを作成し、自動マージ・クローズするスクリプトと、過去の活動を記録するコミットを自動的に作成するスクリプトが含まれています。
 
 ## ファイル内容
-- `github-auto-pr.py`: 新しいブランチを作成し、ファイルを追加してプルリクエストを作成、自動マージ・クローズするスクリプト。
+- `github-auto-pr.py`: 新しいブランチを作成し、activity.txtを更新してプルリクエストを作成、自動マージ・クローズするスクリプト。
 - `github-activity-bot.py`: 過去の活動を記録するコミットを自動的に作成するスクリプト。
+- `cleanup-repo.py`: 不要なファイル（new_file*.txt、maintenanceフォルダ）をクリーンアップするスクリプト。
 - `run-activity-bot.sh`: activity botを実行するためのシェルスクリプト
 - `run-auto-pr.sh`: auto PRを実行するためのシェルスクリプト
+- `run-cleanup.sh`: リポジトリクリーンアップを実行するためのシェルスクリプト
 - `ecosystem.config.js`: PM2による自動実行設定
 - `github-activity-bot.service`: systemd用activity botサービスファイル
 - `github-auto-pr.service`: systemd用auto PRサービスファイル
@@ -21,9 +23,9 @@
 このスクリプトは以下の機能を持っています:
 - イシューを自動作成
 - 新しいブランチを作成
-- 新しいブランチにファイルを追加
+- **activity.txtファイルを更新（新しいファイルは作成しない）**
 - プルリクエストを作成（イシューと関連付け）
-- **プルリクエストを自動マージ**
+- **プルリクエストを自動マージ（状態チェック機能付き）**
 - **イシューを自動クローズ**
 - **作業ブランチを自動削除**
 
@@ -31,6 +33,12 @@
 このスクリプトは以下の機能を持っています:
 - 過去の活動を記録するコミットを作成
 - activity.txtファイルを最新の日付で更新
+
+### cleanup-repo.py
+このスクリプトは以下の機能を持っています:
+- **不要なnew_file*.txtファイルを自動削除**
+- **maintenanceフォルダとその中身を自動削除**
+- リポジトリの整理とクリーンアップ
 
 ## systemdによる自動実行設定
 - `github-activity-bot.timer`: 毎日実行（ランダム遅延あり）
@@ -84,6 +92,9 @@ GITHUB_TOKEN=your_github_token_here
 
 # Auto PR botの実行
 ./run-auto-pr.sh
+
+# リポジトリクリーンアップの実行
+./run-cleanup.sh
 ```
 
 ### systemdでの管理

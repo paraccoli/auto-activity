@@ -11,7 +11,7 @@ if [ -d "venv" ]; then
 fi
 
 # Pythonスクリプトを実行
-python3 github-activity-bot.py
+python3 github-auto-pr.py
 
 # 仮想環境を非アクティベート（アクティベートしていた場合）
 if [ -d "venv" ]; then
